@@ -9,7 +9,7 @@ const puppeteer = require("puppeteer")
 
   await page.goto(PAGE_URL)
 
-  await page.waitFor(1500)
+  await page.waitFor(750)
 
   await page.type(
     "input[id=ctl00_contentPlaceHolderConteudo_BuscaNomeEmpresa1_txtNomeEmpresa_txtNomeEmpresa_text]",
@@ -115,17 +115,27 @@ async function parseTable(linkToReportHistory2, browser) {
 
   await pageTable1.goto(linkToReportHistory2)
 
-  await pageTable1.waitFor(1000)
+  await pageTable1.waitFor(250)
 
-  const tableData = await pageTable1.$$eval("#ctl00_cphPopUp_tbDados > tbody > tr", (trs) =>
-    trs.map((tr) => {
-      const tds = [...tr.getElementsByTagName("td")]
-      console.log(tr)
-      return tds.map((td) => td.innerHTML)
-    })
-  )
+  // Get iframe element for original url, then navigate to the original one
+  await pageTable1.waitForSelector("#iFrameFormulariosFilho")
+  let tableBody = await pageTable1.evaluate((selector) => {
+    iframeFormulariosFilho = document.querySelector(selector).contentDocument
+    let tableBody = iframeFormulariosFilho.querySelector("#ctl00_cphPopUp_tbDados > tbody").getElementsByTagName("tr")
+    let rows = new Array()
+    for (let i = 1; i < tableBody.length; i++) {
+      let tr = tableBody.item(i)
+      let cells = new Array()
+      for (let j = 0; j < 5; j++) {
+        // alert(tr.cells[j].innerText)
+        cells.push(tr.cells[j].innerText)
+        // alert("epa")
+        // alert(cells[j])
+      }
+      rows.push(cells)
+    }
+    return rows
+  }, "#iFrameFormulariosFilho")
 
-  // const tableData = document.querySelector("#ctl00_cphPopUp_tbDados").getElementsByTagName("tr")[1].textContent
-
-  console.log(tableData)
+  console.log(tableBody)
 }
