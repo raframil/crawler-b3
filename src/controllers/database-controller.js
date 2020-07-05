@@ -12,14 +12,13 @@ const pool = new pg.Pool({
 })
 
 const persistData = async (parsedData) => {
-  // const client = await Pool.connect
-
-  log(chalk.yellow('Armazenamento dos dados inicializado'))
   const companyName = parsedData.companyName
   const firstYear = parsedData.tableHeader[2].split('/')[2].split(/(\s+)/)[0]
   const secondYear = parsedData.tableHeader[3].split('/')[2].split(/(\s+)/)[0]
   const thirdYear = parsedData.tableHeader[4].split('/')[2].split(/(\s+)/)[0]
   const tableData = parsedData.tableData
+
+  log(chalk.yellow('Armazenamento dos dados(' + firstYear + ' a ' + thirdYear + ') inicializado'))
 
   for (const row of tableData) {
     const description = row[1]
@@ -70,9 +69,7 @@ const persistData = async (parsedData) => {
       console.log(row)
     }
   }
-
-  log(chalk.yellow('Armazenamento finalizado'))
-  pool.end()
+  log(chalk.yellow('Armazenamento finalizado(' + firstYear + ' a ' + thirdYear + ')'))
 }
 
 module.exports = { persistData, pool }

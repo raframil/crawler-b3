@@ -74,9 +74,16 @@ const index = async (request, response) => {
       }
     )
     console.log(`\nfirstLinkToReportHistory: ${firstLinkToReportHistory}`)
-    // todo add parse table to firstLinkToReportHistory
-    // const tableData = await parseTable(firstLinkToReportHistory)
-    // const tableHeader = tableData[0]
+    const last3YearsTableData = await parseTable(firstLinkToReportHistory)
+    const last3YearsTableHeader = last3YearsTableData[0]
+    last3YearsTableData.splice(0, 1)
+
+    const last3YerasSerialized = {
+      companyName: companyName,
+      tableHeader: last3YearsTableHeader,
+      tableData: last3YearsTableData
+    }
+    persistData(last3YerasSerialized)
 
     // Get second link from reports
     await page.waitForSelector('#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl03_lnkDocumento')
@@ -89,19 +96,25 @@ const index = async (request, response) => {
     )
     console.log(`\nsecondLinkToReportHistory: ${secondLinkToReportHistory}`)
 
-    const tableData = await parseTable(secondLinkToReportHistory)
-    const tableHeader = tableData[0]
-
+    const previous3YearsTableData = await parseTable(secondLinkToReportHistory)
+    const previous3YearsTableHeader = previous3YearsTableData[0]
     // Remove o header da resposta
-    tableData.splice(0, 1)
+    previous3YearsTableData.splice(0, 1)
 
-    const serialized = {
+    const previous3YearsSerialized = {
       companyName,
-      tableHeader,
-      tableData
+      tableHeader: previous3YearsTableHeader,
+      tableData: previous3YearsTableData
     }
 
-    persistData(serialized)
+    persistData(previous3YearsSerialized)
+    const serialized = {
+      companyName,
+      previous3YearsTableHeader,
+      previous3YearsTableData,
+      last3YearsTableHeader,
+      last3YearsTableData
+    }
 
     await navigationPromise
     await browser.close()
