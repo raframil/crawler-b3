@@ -48,7 +48,7 @@ const index = async (request, response) => {
         return element.innerHTML
       }
     )
-    console.log(`Empresa encontrada: ${companyName}`)
+    log(chalk.blue(`Empresa encontrada: ${companyName}\n`))
 
     // go to report page
     await page.evaluate(
@@ -72,7 +72,7 @@ const index = async (request, response) => {
         return linkToReport1.substring(36, linkToReport1.length - 2)
       }
     )
-    console.log(`firstLinkToReportHistory: ${firstLinkToReportHistory}`)
+    console.log(`\nfirstLinkToReportHistory: ${firstLinkToReportHistory}`)
 
     // Get second link from reports
     await page.waitForSelector('#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl03_lnkDocumento')
@@ -83,20 +83,51 @@ const index = async (request, response) => {
         return linkToReport2.substring(36, linkToReport2.length - 2)
       }
     )
-    console.log(`secondLinkToReportHistory: ${secondLinkToReportHistory}`)
+    console.log(`\nsecondLinkToReportHistory: ${secondLinkToReportHistory}`)
 
     const tableData = await parseTable(secondLinkToReportHistory)
 
-    if (tableData.name === 'TimeoutError') {
-      return response.status(502).json({ error: tableData.name })
+    // if (tableData.name) {
+    //   return response.status(502).json({ error: tableData.name })
+    // }
+
+    const tableHeader = tableData[0]
+
+    // Remove o header da resposta
+    tableData.splice(0, 1)
+
+    const serialized = {
+      companyName,
+      tableHeader,
+      tableData
     }
 
     await navigationPromise
     await browser.close()
-    return response.status(200).json({ tableData })
+    log(chalk.cyan('Crawler finished'))
+    return response.status(200).json(serialized)
   } catch (err) {
+    log(chalk.red(`Erro: ${err}`))
     return response.status(500).json({ error: err })
   }
+}
+
+const removeWhiteSpacesFromArray = async (table) => {
+  log('Cleaning whitespaces')
+  const promises = []
+
+  for (let i = 0; i < table.length; i++) {
+    for (let j = 0; j < table[i].length; j++) {
+      promises.push(
+        new Promise(resolve => {
+          resolve(table[i][j] = (table[i][j]).trim())
+        })
+      )
+    }
+  }
+  return Promise.all(promises).then(() => {
+    return (table)
+  })
 }
 
 const parseTable = async (secondLinkToReportHistory) => {
@@ -116,15 +147,17 @@ const parseTable = async (secondLinkToReportHistory) => {
     await page.goto(originalUrl, { waitUntil: 'domcontentloaded' })
 
     const selector = '#ctl00_cphPopUp_tbDados > tbody > tr'
-    const tableData = await page.$$eval(selector, trs =>
+    const table = await page.$$eval(selector, trs =>
       trs.map(tr => {
         const tds = [...tr.getElementsByTagName('td')]
         return tds.map(td => td.textContent)
       })
     )
 
+    const cleanTable = await removeWhiteSpacesFromArray(table)
+
     await browser.close()
-    return tableData
+    return cleanTable
   } catch (err) {
     console.log(err)
     return (err)
