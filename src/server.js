@@ -7,12 +7,11 @@ const cors = require('cors')
 const server = http.Server(app)
 
 app.get('/api', (req, res) => {
-  res.json({ ok: 'API online'})
+  res.json({ ok: 'API online' })
 })
 
 app.use(cors())
 app.use(express.json())
 app.use(routes)
-
 
 server.listen(3333)
