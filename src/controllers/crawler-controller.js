@@ -99,7 +99,7 @@ const index = async (request, response) => {
 
     await navigationPromise
     await browser.close()
-    log(chalk.cyan('Crawler finished'))
+    log(chalk.cyan('Crawler finalizou'))
     return response.status(200).json(serialized)
   } catch (err) {
     log(chalk.red(`Erro: ${err}`))
@@ -107,8 +107,8 @@ const index = async (request, response) => {
   }
 }
 
-const removeWhiteSpacesFromArray = async (table) => {
-  log('Cleaning whitespaces')
+const removeWhiteSpacesFromStrings = async (table) => {
+  log('Limpando whitespaces')
   const promises = []
 
   for (let i = 0; i < table.length; i++) {
@@ -116,6 +116,24 @@ const removeWhiteSpacesFromArray = async (table) => {
       promises.push(
         new Promise(resolve => {
           resolve(table[i][j] = (table[i][j]).trim())
+        })
+      )
+    }
+  }
+  return Promise.all(promises).then(() => {
+    return (table)
+  })
+}
+
+const removeDotFromStrings = async (table) => {
+  log('Limpando pontos')
+  const promises = []
+
+  for (let i = 0; i < table.length; i++) {
+    for (let j = 2; j < table[i].length; j++) {
+      promises.push(
+        new Promise(resolve => {
+          resolve(table[i][j] = (table[i][j]).replace(/\./g, ''))
         })
       )
     }
@@ -149,10 +167,11 @@ const parseTable = async (secondLinkToReportHistory) => {
       })
     )
 
-    const cleanTable = await removeWhiteSpacesFromArray(table)
+    const cleanWhiteSpaceTable = await removeWhiteSpacesFromStrings(table)
+    const cleanDotTable = await removeDotFromStrings(cleanWhiteSpaceTable)
 
     await browser.close()
-    return cleanTable
+    return cleanDotTable
   } catch (err) {
     console.log(err)
     return (err)
