@@ -1,8 +1,16 @@
 const puppeteer = require("puppeteer")
 
-;(async () => {
+
+
+const index = async (request, response) => {
+  const { companyCode } = request.body
+
+  if(!companyCode) {
+    return response.status(400).json( { err: 'Código não fornecido'} )
+  }
+
   const PAGE_URL = "http://bvmf.bmfbovespa.com.br/cias-listadas/empresas-listadas/BuscaEmpresaListada.aspx?idioma=pt-br"
-  const browser = await puppeteer.launch({ headless: false })
+  const browser = await puppeteer.launch({ headless: true })
   const page = await browser.newPage()
 
   const navigationPromise = page.waitForNavigation()
@@ -13,7 +21,7 @@ const puppeteer = require("puppeteer")
 
   await page.type(
     "input[id=ctl00_contentPlaceHolderConteudo_BuscaNomeEmpresa1_txtNomeEmpresa_txtNomeEmpresa_text]",
-    "Mahle",
+    `${companyCode}`,
     { delay: 100 }
   )
 
@@ -104,38 +112,49 @@ const puppeteer = require("puppeteer")
   await navigationPromise
 
   //await browser.close()
-})()
-
-async function parseTable(linkToReportHistory2, browser) {
-  // const browser = await puppeteer.launch({ headless: false })
-
-  const pageTable1 = await browser.newPage()
-
-  const navigationPromise2 = pageTable1.waitForNavigation()
-
-  await pageTable1.goto(linkToReportHistory2)
-
-  await pageTable1.waitFor(250)
-
-  // Get iframe element for original url, then navigate to the original one
-  await pageTable1.waitForSelector("#iFrameFormulariosFilho")
-  let tableBody = await pageTable1.evaluate((selector) => {
-    iframeFormulariosFilho = document.querySelector(selector).contentDocument
-    let tableBody = iframeFormulariosFilho.querySelector("#ctl00_cphPopUp_tbDados > tbody").getElementsByTagName("tr")
-    let rows = new Array()
-    for (let i = 1; i < tableBody.length; i++) {
-      let tr = tableBody.item(i)
-      let cells = new Array()
-      for (let j = 0; j < 5; j++) {
-        // alert(tr.cells[j].innerText)
-        cells.push(tr.cells[j].innerText)
-        // alert("epa")
-        // alert(cells[j])
-      }
-      rows.push(cells)
-    }
-    return rows
-  }, "#iFrameFormulariosFilho")
-
-  console.log(tableBody)
 }
+
+const parseTable = async (linkToReportHistory2, browser) => {
+  try{ 
+    const browser = await puppeteer.launch({ headless: false })
+
+    const pageTable1 = await browser.newPage()
+
+    const navigationPromise2 = pageTable1.waitForNavigation()
+
+    await pageTable1.goto(linkToReportHistory2)
+
+    await pageTable1.waitFor(500)
+
+    // Get iframe element for original url, then navigate to the original one
+    await pageTable1.waitForSelector("#iFrameFormulariosFilho")
+    let tableBody = await pageTable1.evaluate((selector) => {
+      iframeFormulariosFilho = document.querySelector(selector).contentDocument
+      let tableBody = iframeFormulariosFilho.querySelector("#ctl00_cphPopUp_tbDados > tbody").getElementsByTagName("tr")
+      let rows = new Array()
+      for (let i = 1; i < tableBody.length; i++) {
+        let tr = tableBody.item(i)
+        let cells = new Array()
+        console.log('aqui')
+        for (let j = 0; j < 5; j++) {
+          console.log(tr.cells[j])
+          // alert(tr.cells[j].innerText)
+          cells.push(tr.cells[j].innerText)
+          // alert("epa")
+          // alert(cells[j])
+        }
+        rows.push(cells)
+      }
+      return rows
+    }, "#iFrameFormulariosFilho")
+    console.log(tableBody)
+    resolve(tableBody)
+  } catch(err) {
+    console.log(err)
+  }
+  
+  
+  
+}
+
+module.exports = { index }
