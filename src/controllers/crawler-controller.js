@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer')
+const chalk = require('chalk')
+const log = console.log
 
 const index = async (request, response) => {
   try {
@@ -8,8 +10,10 @@ const index = async (request, response) => {
       return response.status(400).json({ error: 'Código não fornecido' })
     }
 
+    log(chalk.black.bold.bgGreen('\nStarting crawler...\n'))
+
     const PAGE_URL = 'http://bvmf.bmfbovespa.com.br/cias-listadas/empresas-listadas/BuscaEmpresaListada.aspx?idioma=pt-br'
-    const browser = await puppeteer.launch({ headless: false })
+    const browser = await puppeteer.launch({ headless: true })
     const page = await browser.newPage()
 
     const navigationPromise = page.waitForNavigation()
@@ -44,7 +48,7 @@ const index = async (request, response) => {
         return element.innerHTML
       }
     )
-    console.log(`Company: ${companyName}`)
+    console.log(`Empresa encontrada: ${companyName}`)
 
     // go to report page
     await page.evaluate(
@@ -59,75 +63,71 @@ const index = async (request, response) => {
       '#ctl00_contentPlaceHolderConteudo_liDemonstrativoDfpHistorico > div.content > p > a'
     )
 
-    // get report list link 1
+    // Get first link from reports
     await page.waitForSelector('#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl00_lnkDocumento')
-    const linkToReportHistory1 = await page.$eval(
+    const firstLinkToReportHistory = await page.$eval(
       '#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl00_lnkDocumento',
       (element) => {
-        // get the javascript call onclick() inside de html li element and return the substring link
         const linkToReport1 = element.href
         return linkToReport1.substring(36, linkToReport1.length - 2)
       }
     )
-    console.log(`linkToReportHistory1: ${linkToReportHistory1}`)
+    console.log(`firstLinkToReportHistory: ${firstLinkToReportHistory}`)
 
-    // get report list link 2
+    // Get second link from reports
     await page.waitForSelector('#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl03_lnkDocumento')
-    const linkToReportHistory2 = await page.$eval(
+    const secondLinkToReportHistory = await page.$eval(
       '#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl03_lnkDocumento',
       (element) => {
-        // get the javascript call onclick() inside de html li element and return the substring link
         const linkToReport2 = element.href
         return linkToReport2.substring(36, linkToReport2.length - 2)
       }
     )
-    console.log(`linkToReportHistory2: ${linkToReportHistory2}`)
+    console.log(`secondLinkToReportHistory: ${secondLinkToReportHistory}`)
 
-    await parseTable(linkToReportHistory2, browser)
+    const tableData = await parseTable(secondLinkToReportHistory)
+
+    if (tableData.name === 'TimeoutError') {
+      return response.status(502).json({ error: tableData.name })
+    }
 
     await navigationPromise
-
     await browser.close()
+    return response.status(200).json({ tableData })
   } catch (err) {
     return response.status(500).json({ error: err })
   }
 }
 
-const parseTable = async (linkToReportHistory2, browser) => {
+const parseTable = async (secondLinkToReportHistory) => {
   try {
-    const browser = await puppeteer.launch({ headless: false })
+    const browser = await puppeteer.launch({ headless: true })
+    const page = await browser.newPage()
+    await page.goto(secondLinkToReportHistory)
 
-    const pageTable1 = await browser.newPage()
+    await page.waitFor(500)
 
-    await pageTable1.goto(linkToReportHistory2)
+    await page.waitForSelector('#iFrameFormulariosFilho')
+    const elementHandle = await page.$('#iFrameFormulariosFilho')
+    const frame = await elementHandle.contentFrame()
 
-    await pageTable1.waitFor(500)
+    const originalUrl = frame._url
 
-    // Get iframe element for original url, then navigate to the original one
-    await pageTable1.waitForSelector('#iFrameFormulariosFilho')
-    const tableBody = await pageTable1.evaluate((selector) => {
-      const iframeFormulariosFilho = document.querySelector(selector).contentDocument
-      const tableBody = iframeFormulariosFilho.querySelector('#ctl00_cphPopUp_tbDados > tbody').getElementsByTagName('tr')
-      const rows = []
-      for (let i = 1; i < tableBody.length; i++) {
-        const tr = tableBody.item(i)
-        const cells = []
-        console.log('aqui')
-        for (let j = 0; j < 5; j++) {
-          console.log(tr.cells[j])
-          // alert(tr.cells[j].innerText)
-          cells.push(tr.cells[j].innerText)
-          // alert("epa")
-          // alert(cells[j])
-        }
-        rows.push(cells)
-      }
-      return rows
-    }, '#iFrameFormulariosFilho')
-    console.log(tableBody)
-    return tableBody
+    await page.goto(originalUrl, { waitUntil: 'domcontentloaded' })
+
+    const selector = '#ctl00_cphPopUp_tbDados > tbody > tr'
+    const tableData = await page.$$eval(selector, trs =>
+      trs.map(tr => {
+        const tds = [...tr.getElementsByTagName('td')]
+        return tds.map(td => td.textContent)
+      })
+    )
+
+    await browser.close()
+    return tableData
   } catch (err) {
     console.log(err)
+    return (err)
   }
 }
 

@@ -1,4 +1,4 @@
-const { Router } = require('express');
+const { Router } = require('express')
 
 const CrawlerController = require('./controllers/crawler-controller')
 
