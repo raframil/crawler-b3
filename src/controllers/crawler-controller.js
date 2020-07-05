@@ -86,11 +86,6 @@ const index = async (request, response) => {
     console.log(`\nsecondLinkToReportHistory: ${secondLinkToReportHistory}`)
 
     const tableData = await parseTable(secondLinkToReportHistory)
-
-    // if (tableData.name) {
-    //   return response.status(502).json({ error: tableData.name })
-    // }
-
     const tableHeader = tableData[0]
 
     // Remove o header da resposta
