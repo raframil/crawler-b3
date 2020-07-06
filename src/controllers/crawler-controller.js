@@ -1,13 +1,18 @@
 const puppeteer = require('puppeteer')
 const chalk = require('chalk')
+
 const log = console.log
 
-const index = async (request, response) => {
+const demonstracaoResultado = async (request, response) => {
   try {
-    const { companyCode } = request.body
+    const { companyCode, reportType } = request.body
 
     if (!companyCode) {
       return response.status(400).json({ error: 'Código não fornecido' })
+    }
+
+    if (!reportType) {
+      return response.status(400).json({ error: 'Tipo de relatório não fornecido' })
     }
 
     log(chalk.black.bold.bgGreen('\nStarting crawler...\n'))
@@ -72,7 +77,7 @@ const index = async (request, response) => {
         return linkToReport1.substring(36, linkToReport1.length - 2)
       }
     )
-    console.log(`\nfirstLinkToReportHistory: ${firstLinkToReportHistory}`)
+    log(`\nfirstLinkToReportHistory: ${firstLinkToReportHistory}`)
 
     // Get second link from reports
     await page.waitForSelector('#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl03_lnkDocumento')
@@ -83,9 +88,9 @@ const index = async (request, response) => {
         return linkToReport2.substring(36, linkToReport2.length - 2)
       }
     )
-    console.log(`\nsecondLinkToReportHistory: ${secondLinkToReportHistory}`)
+    log(`\nsecondLinkToReportHistory: ${secondLinkToReportHistory}`)
 
-    const tableData = await parseTable(secondLinkToReportHistory)
+    const tableData = await parseTable(secondLinkToReportHistory, reportType)
     const tableHeader = tableData[0]
 
     // Remove o header da resposta
@@ -104,6 +109,72 @@ const index = async (request, response) => {
   } catch (err) {
     log(chalk.red(`Erro: ${err}`))
     return response.status(500).json({ error: err })
+  }
+}
+
+const parseTable = async (link, reportType) => {
+  try {
+    const browser = await puppeteer.launch({ headless: true })
+    const page = await browser.newPage()
+    await page.goto(link)
+
+    await page.waitFor(1000)
+
+    await page.waitForSelector('#cmbQuadro')
+
+    let value
+    switch (reportType) {
+      case 'bpa':
+        value = await page.evaluate(() => {
+          return document.querySelector('#cmbQuadro option:nth-child(1)').value
+        })
+        break
+      case 'bpp':
+        value = await page.evaluate(() => {
+          return document.querySelector('#cmbQuadro option:nth-child(2)').value
+        })
+        break
+      case 'dfc':
+        value = await page.evaluate(() => {
+          return document.querySelector('#cmbQuadro option:nth-child(5)').value
+        })
+        break
+      case 'dre':
+        break
+      default:
+        break
+    }
+
+    if (reportType !== 'dre') {
+      await page.select('#cmbQuadro', value)
+    }
+
+    await page.waitFor(10000)
+
+    await page.waitForSelector('#iFrameFormulariosFilho')
+    const elementHandle = await page.$('#iFrameFormulariosFilho')
+    const frame = await elementHandle.contentFrame()
+
+    const originalUrl = frame._url
+
+    await page.goto(originalUrl, { waitUntil: 'domcontentloaded' })
+
+    const selector = '#ctl00_cphPopUp_tbDados > tbody > tr'
+    const table = await page.$$eval(selector, trs =>
+      trs.map(tr => {
+        const tds = [...tr.getElementsByTagName('td')]
+        return tds.map(td => td.textContent)
+      })
+    )
+
+    const cleanWhiteSpaceTable = await removeWhiteSpacesFromStrings(table)
+    const cleanDotTable = await removeDotFromStrings(cleanWhiteSpaceTable)
+
+    // await browser.close()
+    return cleanDotTable
+  } catch (err) {
+    log(chalk.red(err))
+    return (err)
   }
 }
 
@@ -143,39 +214,4 @@ const removeDotFromStrings = async (table) => {
   })
 }
 
-const parseTable = async (secondLinkToReportHistory) => {
-  try {
-    const browser = await puppeteer.launch({ headless: true })
-    const page = await browser.newPage()
-    await page.goto(secondLinkToReportHistory)
-
-    await page.waitFor(500)
-
-    await page.waitForSelector('#iFrameFormulariosFilho')
-    const elementHandle = await page.$('#iFrameFormulariosFilho')
-    const frame = await elementHandle.contentFrame()
-
-    const originalUrl = frame._url
-
-    await page.goto(originalUrl, { waitUntil: 'domcontentloaded' })
-
-    const selector = '#ctl00_cphPopUp_tbDados > tbody > tr'
-    const table = await page.$$eval(selector, trs =>
-      trs.map(tr => {
-        const tds = [...tr.getElementsByTagName('td')]
-        return tds.map(td => td.textContent)
-      })
-    )
-
-    const cleanWhiteSpaceTable = await removeWhiteSpacesFromStrings(table)
-    const cleanDotTable = await removeDotFromStrings(cleanWhiteSpaceTable)
-
-    await browser.close()
-    return cleanDotTable
-  } catch (err) {
-    console.log(err)
-    return (err)
-  }
-}
-
-module.exports = { index }
+module.exports = { demonstracaoResultado }

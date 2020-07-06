@@ -4,6 +4,6 @@ const CrawlerController = require('./controllers/crawler-controller')
 
 const router = Router()
 
-router.get('/api/companies', CrawlerController.index)
+router.get('/api/companies', CrawlerController.demonstracaoResultado)
 
 module.exports = router
