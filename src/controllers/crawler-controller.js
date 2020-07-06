@@ -3,17 +3,31 @@ const chalk = require('chalk')
 const { persistData } = require('./database-controller')
 const log = console.log
 
-const index = async (request, response) => {
+const maxRetryNumber = 5
+let retryNumber = 0
+
+const demonstracaoResultado = async (request, response) => {
+  retryNumber++
+  console.log(retryNumber)
+  if (retryNumber >= maxRetryNumber) {
+    return response.status(408).json({ error: 'Número máximo de tentativas excedido' })
+  }
+
   try {
-    const { companyCode } = request.body
+    const { companyCode, reportType } = request.query
 
     if (!companyCode) {
       return response.status(400).json({ error: 'Código não fornecido' })
     }
 
+    if (!reportType) {
+      return response.status(400).json({ error: 'Tipo de relatório não fornecido' })
+    }
+
     log(chalk.black.bold.bgGreen('\nStarting crawler...\n'))
 
-    const PAGE_URL = 'http://bvmf.bmfbovespa.com.br/cias-listadas/empresas-listadas/BuscaEmpresaListada.aspx?idioma=pt-br'
+    const PAGE_URL =
+      'http://bvmf.bmfbovespa.com.br/cias-listadas/empresas-listadas/BuscaEmpresaListada.aspx?idioma=pt-br'
     const browser = await puppeteer.launch({ headless: true })
     const page = await browser.newPage()
 
@@ -74,7 +88,7 @@ const index = async (request, response) => {
       }
     )
     console.log(`\nfirstLinkToReportHistory: ${firstLinkToReportHistory}`)
-    const last3YearsTableData = await parseTable(firstLinkToReportHistory)
+    const last3YearsTableData = await parseTable(firstLinkToReportHistory, reportType)
     const last3YearsTableHeader = last3YearsTableData[0]
     last3YearsTableData.splice(0, 1)
 
@@ -94,10 +108,11 @@ const index = async (request, response) => {
         return linkToReport2.substring(36, linkToReport2.length - 2)
       }
     )
-    console.log(`\nsecondLinkToReportHistory: ${secondLinkToReportHistory}`)
+    log(`\nsecondLinkToReportHistory: ${secondLinkToReportHistory}`)
 
-    const previous3YearsTableData = await parseTable(secondLinkToReportHistory)
+    const previous3YearsTableData = await parseTable(secondLinkToReportHistory, reportType)
     const previous3YearsTableHeader = previous3YearsTableData[0]
+
     // Remove o header da resposta
     previous3YearsTableData.splice(0, 1)
 
@@ -126,49 +141,44 @@ const index = async (request, response) => {
   }
 }
 
-const removeWhiteSpacesFromStrings = async (table) => {
-  log('Limpando whitespaces')
-  const promises = []
-
-  for (let i = 0; i < table.length; i++) {
-    for (let j = 0; j < table[i].length; j++) {
-      promises.push(
-        new Promise(resolve => {
-          resolve(table[i][j] = (table[i][j]).trim())
-        })
-      )
-    }
-  }
-  return Promise.all(promises).then(() => {
-    return (table)
-  })
-}
-
-const removeDotFromStrings = async (table) => {
-  log('Limpando pontos')
-  const promises = []
-
-  for (let i = 0; i < table.length; i++) {
-    for (let j = 2; j < table[i].length; j++) {
-      promises.push(
-        new Promise(resolve => {
-          resolve(table[i][j] = (table[i][j]).replace(/\./g, ''))
-        })
-      )
-    }
-  }
-  return Promise.all(promises).then(() => {
-    return (table)
-  })
-}
-
-const parseTable = async (secondLinkToReportHistory) => {
+const parseTable = async (link, reportType) => {
   try {
     const browser = await puppeteer.launch({ headless: true })
     const page = await browser.newPage()
-    await page.goto(secondLinkToReportHistory)
+    await page.goto(link)
 
-    await page.waitFor(500)
+    await page.waitFor(1000)
+
+    await page.waitForSelector('#cmbQuadro')
+
+    let value
+    switch (reportType) {
+      case 'bpa':
+        value = await page.evaluate(() => {
+          return document.querySelector('#cmbQuadro option:nth-child(1)').value
+        })
+        break
+      case 'bpp':
+        value = await page.evaluate(() => {
+          return document.querySelector('#cmbQuadro option:nth-child(2)').value
+        })
+        break
+      case 'dfc':
+        value = await page.evaluate(() => {
+          return document.querySelector('#cmbQuadro option:nth-child(5)').value
+        })
+        break
+      case 'dre':
+        break
+      default:
+        break
+    }
+
+    if (reportType !== 'dre') {
+      await page.select('#cmbQuadro', value)
+    }
+
+    await page.waitFor(10000)
 
     await page.waitForSelector('#iFrameFormulariosFilho')
     const elementHandle = await page.$('#iFrameFormulariosFilho')
@@ -179,22 +189,58 @@ const parseTable = async (secondLinkToReportHistory) => {
     await page.goto(originalUrl, { waitUntil: 'domcontentloaded' })
 
     const selector = '#ctl00_cphPopUp_tbDados > tbody > tr'
-    const table = await page.$$eval(selector, trs =>
-      trs.map(tr => {
+    const table = await page.$$eval(selector, (trs) =>
+      trs.map((tr) => {
         const tds = [...tr.getElementsByTagName('td')]
-        return tds.map(td => td.textContent)
+        return tds.map((td) => td.textContent)
       })
     )
 
     const cleanWhiteSpaceTable = await removeWhiteSpacesFromStrings(table)
     const cleanDotTable = await removeDotFromStrings(cleanWhiteSpaceTable)
 
-    await browser.close()
+    // await browser.close()
     return cleanDotTable
   } catch (err) {
-    console.log(err)
-    return (err)
+    log(chalk.red(err))
+    return err
   }
 }
 
-module.exports = { index }
+const removeWhiteSpacesFromStrings = async (table) => {
+  log('Limpando whitespaces')
+  const promises = []
+
+  for (let i = 0; i < table.length; i++) {
+    for (let j = 0; j < table[i].length; j++) {
+      promises.push(
+        new Promise((resolve) => {
+          resolve((table[i][j] = table[i][j].trim()))
+        })
+      )
+    }
+  }
+  return Promise.all(promises).then(() => {
+    return table
+  })
+}
+
+const removeDotFromStrings = async (table) => {
+  log('Limpando pontos')
+  const promises = []
+
+  for (let i = 0; i < table.length; i++) {
+    for (let j = 2; j < table[i].length; j++) {
+      promises.push(
+        new Promise((resolve) => {
+          resolve((table[i][j] = table[i][j].replace(/\./g, '')))
+        })
+      )
+    }
+  }
+  return Promise.all(promises).then(() => {
+    return table
+  })
+}
+
+module.exports = { demonstracaoResultado }
