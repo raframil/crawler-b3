@@ -12,6 +12,7 @@ const pool = new pg.Pool({
 })
 
 const persistData = async (parsedData) => {
+  const client = await pool.connect()
   const companyName = parsedData.companyName
   const firstYear = parsedData.tableHeader[2].split('/')[2].split(/(\s+)/)[0]
   const secondYear = parsedData.tableHeader[3].split('/')[2].split(/(\s+)/)[0]
@@ -40,7 +41,7 @@ const persistData = async (parsedData) => {
         ($1, $2, $3, $4, $5, $6, $7)`
 
       // Pass the string and array to the pool's query() method
-      pool.query(sqlString, firstYearValues, (err, res) => {
+      client.query(sqlString, firstYearValues, (err, res) => {
         if (err) {
           console.log('pool.query():', err)
         }
@@ -48,7 +49,7 @@ const persistData = async (parsedData) => {
           // console.log('pool.query(): sucess')
         }
       })
-      pool.query(sqlString, secondYearValues, (err, res) => {
+      client.query(sqlString, secondYearValues, (err, res) => {
         if (err) {
           console.log('pool.query():', err)
         }
@@ -56,7 +57,7 @@ const persistData = async (parsedData) => {
           // console.log('pool.query(): sucess')
         }
       })
-      pool.query(sqlString, thirdYearValues, (err, res) => {
+      client.query(sqlString, thirdYearValues, (err, res) => {
         if (err) {
           console.log('pool.query():', err)
         }
@@ -66,7 +67,7 @@ const persistData = async (parsedData) => {
       })
     } else {
       // console.log('Code is too big')
-      console.log(row)
+      // console.log(row)
     }
   }
   log(chalk.yellow('Armazenamento finalizado(' + firstYear + ' a ' + thirdYear + ')'))
