@@ -1,11 +1,19 @@
 const puppeteer = require('puppeteer')
 const chalk = require('chalk')
-
 const log = console.log
 
+const maxRetryNumber = 5
+let retryNumber = 0
+
 const demonstracaoResultado = async (request, response) => {
+  retryNumber++
+  console.log(retryNumber)
+  if (retryNumber >= maxRetryNumber) {
+    return response.status(408).json({ error: 'Número máximo de tentativas excedido' })
+  }
+
   try {
-    const { companyCode, reportType } = request.body
+    const { companyCode, reportType } = request.query
 
     if (!companyCode) {
       return response.status(400).json({ error: 'Código não fornecido' })
