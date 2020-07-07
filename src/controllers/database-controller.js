@@ -10,15 +10,32 @@ const pool = new pg.Pool({
   port: '5432',
   max: 10
 })
+const prettyData = async (companyName, tableName) => {
+  const client = await pool.connect()
+  const sqlString = `SELECT "ano" FROM "${tableName}" WHERE "codigoEmpresa" = $1 GROUP BY "ano" ORDER BY "ano" DESC`
+
+  const resultYears = await client
+    .query(sqlString, [companyName])
+    .then(res => { return res.rows })
+    .catch(e => console.error(e.stack))
+  const years = resultYears.map((element) => { return element.ano })
+  const array = ['teste', ...years]
+  console.log(array)
+}
 
 const getCompanyData = async (companyName, reportType) => {
   const client = await pool.connect()
   let sqlString = ''
+  let tableName
   switch (reportType) {
     case 'bpa':
       sqlString = `
         SELECT * FROM "balanco-patrimonial-ativo" WHERE "codigoEmpresa" = $1 
       `
+      tableName = 'balanco-patrimonial-ativo'
+
+      await prettyData(companyName, tableName)
+
       break
     case 'bpp':
       sqlString = `

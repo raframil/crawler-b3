@@ -61,6 +61,7 @@ const demonstracaoResultado = async (request, response) => {
       return response.status(200).json(companyData)
     }
 
+    // console.log('asdasdasd')
     // go to report page
     await page.evaluate(
       (selector) => document.querySelector(selector).click(),
@@ -73,7 +74,6 @@ const demonstracaoResultado = async (request, response) => {
       (selector) => document.querySelector(selector).click(),
       '#ctl00_contentPlaceHolderConteudo_liDemonstrativoDfpHistorico > div.content > p > a'
     )
-
     // Get first link from reports
     await page.waitForSelector('#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl00_lnkDocumento')
     const firstLinkToReportHistory = await page.$eval(
