@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer')
 const chalk = require('chalk')
+const { persistData } = require('./database-controller')
 const log = console.log
 
 const maxRetryNumber = 5
@@ -25,7 +26,8 @@ const demonstracaoResultado = async (request, response) => {
 
     log(chalk.black.bold.bgGreen('\nStarting crawler...\n'))
 
-    const PAGE_URL = 'http://bvmf.bmfbovespa.com.br/cias-listadas/empresas-listadas/BuscaEmpresaListada.aspx?idioma=pt-br'
+    const PAGE_URL =
+      'http://bvmf.bmfbovespa.com.br/cias-listadas/empresas-listadas/BuscaEmpresaListada.aspx?idioma=pt-br'
     const browser = await puppeteer.launch({ headless: true })
     const page = await browser.newPage()
 
@@ -85,7 +87,17 @@ const demonstracaoResultado = async (request, response) => {
         return linkToReport1.substring(36, linkToReport1.length - 2)
       }
     )
-    log(`\nfirstLinkToReportHistory: ${firstLinkToReportHistory}`)
+    console.log(`\nfirstLinkToReportHistory: ${firstLinkToReportHistory}`)
+    const last3YearsTableData = await parseTable(firstLinkToReportHistory, reportType)
+    const last3YearsTableHeader = last3YearsTableData[0]
+    last3YearsTableData.splice(0, 1)
+
+    const last3YerasSerialized = {
+      companyName: companyName,
+      tableHeader: last3YearsTableHeader,
+      tableData: last3YearsTableData
+    }
+    persistData(last3YerasSerialized)
 
     // Get second link from reports
     await page.waitForSelector('#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl03_lnkDocumento')
@@ -98,16 +110,25 @@ const demonstracaoResultado = async (request, response) => {
     )
     log(`\nsecondLinkToReportHistory: ${secondLinkToReportHistory}`)
 
-    const tableData = await parseTable(secondLinkToReportHistory, reportType)
-    const tableHeader = tableData[0]
+    const previous3YearsTableData = await parseTable(secondLinkToReportHistory, reportType)
+    const previous3YearsTableHeader = previous3YearsTableData[0]
 
     // Remove o header da resposta
-    tableData.splice(0, 1)
+    previous3YearsTableData.splice(0, 1)
 
+    const previous3YearsSerialized = {
+      companyName,
+      tableHeader: previous3YearsTableHeader,
+      tableData: previous3YearsTableData
+    }
+
+    persistData(previous3YearsSerialized)
     const serialized = {
       companyName,
-      tableHeader,
-      tableData
+      previous3YearsTableHeader,
+      previous3YearsTableData,
+      last3YearsTableHeader,
+      last3YearsTableData
     }
 
     await navigationPromise
@@ -168,10 +189,10 @@ const parseTable = async (link, reportType) => {
     await page.goto(originalUrl, { waitUntil: 'domcontentloaded' })
 
     const selector = '#ctl00_cphPopUp_tbDados > tbody > tr'
-    const table = await page.$$eval(selector, trs =>
-      trs.map(tr => {
+    const table = await page.$$eval(selector, (trs) =>
+      trs.map((tr) => {
         const tds = [...tr.getElementsByTagName('td')]
-        return tds.map(td => td.textContent)
+        return tds.map((td) => td.textContent)
       })
     )
 
@@ -182,7 +203,7 @@ const parseTable = async (link, reportType) => {
     return cleanDotTable
   } catch (err) {
     log(chalk.red(err))
-    return (err)
+    return err
   }
 }
 
@@ -193,14 +214,14 @@ const removeWhiteSpacesFromStrings = async (table) => {
   for (let i = 0; i < table.length; i++) {
     for (let j = 0; j < table[i].length; j++) {
       promises.push(
-        new Promise(resolve => {
-          resolve(table[i][j] = (table[i][j]).trim())
+        new Promise((resolve) => {
+          resolve((table[i][j] = table[i][j].trim()))
         })
       )
     }
   }
   return Promise.all(promises).then(() => {
-    return (table)
+    return table
   })
 }
 
@@ -211,14 +232,14 @@ const removeDotFromStrings = async (table) => {
   for (let i = 0; i < table.length; i++) {
     for (let j = 2; j < table[i].length; j++) {
       promises.push(
-        new Promise(resolve => {
-          resolve(table[i][j] = (table[i][j]).replace(/\./g, ''))
+        new Promise((resolve) => {
+          resolve((table[i][j] = table[i][j].replace(/\./g, '')))
         })
       )
     }
   }
   return Promise.all(promises).then(() => {
-    return (table)
+    return table
   })
 }
 
