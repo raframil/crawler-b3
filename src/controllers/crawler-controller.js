@@ -80,13 +80,16 @@ const demonstracaoResultado = async (request, response) => {
 
     // Get first link from reports
     await page.waitForSelector('#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl00_lnkDocumento')
-    const firstLinkToReportHistory = await page.$eval(
+    const { firstLinkToReportHistory, firstYear } = await page.$eval(
       '#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl00_lnkDocumento',
       (element) => {
-        const linkToReport1 = element.href
-        return linkToReport1.substring(36, linkToReport1.length - 2)
+        const firstYear = element.innerHTML.split(' ')[0].split('/')[2]
+        let firstLinkToReportHistory = element.href
+        firstLinkToReportHistory = firstLinkToReportHistory.substring(36, firstLinkToReportHistory.length - 2)
+        return { firstLinkToReportHistory, firstYear }
       }
     )
+    console.log(firstYear)
     console.log(`\nfirstLinkToReportHistory: ${firstLinkToReportHistory}`)
     const last3YearsTableData = await parseTable(firstLinkToReportHistory, reportType)
     const last3YearsTableHeader = last3YearsTableData[0]
@@ -143,7 +146,7 @@ const demonstracaoResultado = async (request, response) => {
 
 const parseTable = async (link, reportType) => {
   try {
-    const browser = await puppeteer.launch({ headless: true })
+    const browser = await puppeteer.launch({ headless: false })
     const page = await browser.newPage()
     await page.goto(link)
 
