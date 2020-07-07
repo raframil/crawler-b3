@@ -11,6 +11,40 @@ const pool = new pg.Pool({
   max: 10
 })
 
+const getCompanyData = async (companyName, reportType) => {
+  const client = await pool.connect()
+  let sqlString = ''
+  switch (reportType) {
+    case 'bpa':
+      sqlString = `
+        SELECT * FROM "balanco-patrimonial-ativo" WHERE "codigoEmpresa" = $1 
+      `
+      break
+    case 'bpp':
+      sqlString = `
+        SELECT * FROM "balanco-patrimonial-passivo" WHERE "codigoEmpresa" = $1 
+      `
+      break
+    case 'dfc':
+      sqlString = `
+        SELECT * FROM "demonstracao-fluxo-caixa" WHERE "codigoEmpresa" = $1 
+      `
+      break
+    case 'dre':
+      sqlString = `
+        SELECT * FROM "demonstrativo-de-resultado" WHERE "codigoEmpresa" = $1 
+      `
+      break
+    default:
+      break
+  }
+  const res = await client
+    .query(sqlString, [companyName])
+    .then(res => { return res.rows })
+    .catch(e => console.error(e.stack))
+  return res
+}
+
 const persistData = async (parsedData, reportType) => {
   const client = await pool.connect()
   const companyName = parsedData.companyName
@@ -99,4 +133,4 @@ const persistData = async (parsedData, reportType) => {
   log(chalk.yellow('Armazenamento finalizado(' + firstYear + ' a ' + thirdYear + ')'))
 }
 
-module.exports = { persistData, pool }
+module.exports = { persistData, pool, getCompanyData }

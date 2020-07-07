@@ -1,6 +1,6 @@
 const puppeteer = require('puppeteer')
 const chalk = require('chalk')
-const { persistData } = require('./database-controller')
+const { persistData, getCompanyData } = require('./database-controller')
 const log = console.log
 
 const demonstracaoResultado = async (request, response) => {
@@ -55,6 +55,11 @@ const demonstracaoResultado = async (request, response) => {
       }
     )
     log(chalk.blue(`Empresa encontrada: ${companyName}\n`))
+
+    const companyData = await getCompanyData(companyName, reportType)
+    if (companyData.length !== 0) {
+      return response.status(200).json(companyData)
+    }
 
     // go to report page
     await page.evaluate(
