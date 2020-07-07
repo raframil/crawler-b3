@@ -14,7 +14,7 @@ const prettyData = async (companyName, tableName) => {
   const client = await pool.connect()
   const sqlStringEvalIfDataIsSaved = `SELECT * FROM "${tableName}" WHERE "codigoEmpresa" = $1`
   const sqlString = `SELECT "ano" FROM "${tableName}" WHERE "codigoEmpresa" = $1 GROUP BY "ano" ORDER BY "ano" DESC`
-  const getCodesSqlString = `SELECT "codigoConta1", "codigoConta2", "codigoConta3", "descrição" FROM "${tableName}" WHERE "codigoEmpresa" = $1 GROUP BY ("codigoConta1", "codigoConta2", "codigoConta3", "descrição") ORDER BY ("codigoConta1", "codigoConta2", "codigoConta3") DESC`
+  const getCodesSqlString = `SELECT "codigoConta1", "codigoConta2", "codigoConta3", "descrição" FROM "${tableName}" WHERE "codigoEmpresa" = $1 GROUP BY ("codigoConta1", "codigoConta2", "codigoConta3", "descrição") ORDER BY ("codigoConta3", "codigoConta2", "codigoConta1") ASC`
   const getAnnualValueSqlString3 = `SELECT "valor" FROM "${tableName}" WHERE "codigoConta1" = $1 AND "codigoConta2" = $2 AND "codigoConta3" = $3 AND "codigoEmpresa" = $4 AND "ano" = $5`
   const getAnnualValueSqlString2 = `SELECT "valor" FROM "${tableName}" WHERE "codigoConta1" = $1 AND "codigoConta2" = $2 AND "codigoEmpresa" = $3 AND "ano" = $4`
   const getAnnualValueSqlString1 = `SELECT "valor" FROM "${tableName}" WHERE "codigoConta1" = $1 AND "codigoEmpresa" = $2 AND "ano" = $3`
