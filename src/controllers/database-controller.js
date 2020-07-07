@@ -10,31 +10,104 @@ const pool = new pg.Pool({
   port: '5432',
   max: 10
 })
+const prettyData = async (companyName, tableName) => {
+  const client = await pool.connect()
+  const sqlStringEvalIfDataIsSaved = `SELECT * FROM "${tableName}" WHERE "codigoEmpresa" = $1`
+  const sqlString = `SELECT "ano" FROM "${tableName}" WHERE "codigoEmpresa" = $1 GROUP BY "ano" ORDER BY "ano" DESC`
+  const getCodesSqlString = `SELECT "codigoConta1", "codigoConta2", "codigoConta3", "descrição" FROM "${tableName}" WHERE "codigoEmpresa" = $1 GROUP BY ("codigoConta1", "codigoConta2", "codigoConta3", "descrição") ORDER BY ("codigoConta3", "codigoConta2", "codigoConta1") ASC`
+  const getAnnualValueSqlString3 = `SELECT "valor" FROM "${tableName}" WHERE "codigoConta1" = $1 AND "codigoConta2" = $2 AND "codigoConta3" = $3 AND "codigoEmpresa" = $4 AND "ano" = $5`
+  const getAnnualValueSqlString2 = `SELECT "valor" FROM "${tableName}" WHERE "codigoConta1" = $1 AND "codigoConta2" = $2 AND "codigoEmpresa" = $3 AND "ano" = $4`
+  const getAnnualValueSqlString1 = `SELECT "valor" FROM "${tableName}" WHERE "codigoConta1" = $1 AND "codigoEmpresa" = $2 AND "ano" = $3`
+
+  const dataAlreadySaved = await client
+    .query(sqlStringEvalIfDataIsSaved, [companyName])
+    .then(res => { return res.rows })
+    .catch(e => console.error(e.stack))
+  if (!dataAlreadySaved.length > 0) {
+    return dataAlreadySaved
+  }
+
+  const resultYears = await client
+    .query(sqlString, [companyName])
+    .then(res => { return res.rows })
+    .catch(e => console.error(e.stack))
+  const years = resultYears.map((element) => { return element.ano })
+
+  const codeLines = await client
+    .query(getCodesSqlString, [companyName])
+    .then(res => { return res.rows })
+    .catch(e => console.error(e.stack))
+
+  const resultadoParcial = []
+  const resultadoFinal = []
+  let contador = 0
+  resultadoFinal[contador++] = ['codigoConta1', 'codigoConta2', 'codigoConta3', 'descrição', ...years]
+  for (const codeLine of codeLines) {
+    for (let index = 0; index < years.length; index++) {
+      // console.log(years[index])
+      let finalSqlString
+      let values
+      if (codeLine.codigoConta1) {
+        if (codeLine.codigoConta2) {
+          if (codeLine.codigoConta3) {
+            finalSqlString = getAnnualValueSqlString3
+            values = [codeLine.codigoConta1, codeLine.codigoConta2, codeLine.codigoConta3, companyName, years[index]]
+          } else {
+            finalSqlString = getAnnualValueSqlString2
+            values = [codeLine.codigoConta1, codeLine.codigoConta2, companyName, years[index]]
+          }
+        } else {
+          finalSqlString = getAnnualValueSqlString1
+          values = [codeLine.codigoConta1, companyName, years[index]]
+        }
+      }
+      const resultValue = await client
+        .query(finalSqlString, values)
+        .then(res => { return res.rows })
+        .catch(e => console.error(e.stack))
+      resultadoParcial[index] = resultValue.map((element) => { return element.valor })[0]
+    }
+    resultadoFinal[contador++] = [codeLine.codigoConta1, codeLine.codigoConta2, codeLine.codigoConta3, codeLine.descrição, ...resultadoParcial]
+    // console.log(resultadoFinal)
+  }
+
+  return resultadoFinal
+}
 
 const getCompanyData = async (companyName, reportType) => {
   const client = await pool.connect()
   let sqlString = ''
+  let tableName
   switch (reportType) {
     case 'bpa':
       sqlString = `
         SELECT * FROM "balanco-patrimonial-ativo" WHERE "codigoEmpresa" = $1 
       `
-      break
+      tableName = 'balanco-patrimonial-ativo'
+
+      return await prettyData(companyName, tableName)
+
     case 'bpp':
       sqlString = `
         SELECT * FROM "balanco-patrimonial-passivo" WHERE "codigoEmpresa" = $1 
       `
-      break
+      tableName = 'balanco-patrimonial-passivo'
+
+      return await prettyData(companyName, tableName)
     case 'dfc':
       sqlString = `
         SELECT * FROM "demonstracao-fluxo-caixa" WHERE "codigoEmpresa" = $1 
       `
-      break
+      tableName = 'demonstracao-fluxo-caixa'
+
+      return await prettyData(companyName, tableName)
     case 'dre':
       sqlString = `
         SELECT * FROM "demonstrativo-de-resultado" WHERE "codigoEmpresa" = $1 
       `
-      break
+      tableName = 'demonstrativo-de-resultado'
+
+      return await prettyData(companyName, tableName)
     default:
       break
   }
