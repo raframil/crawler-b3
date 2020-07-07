@@ -92,9 +92,9 @@ const persistData = async (parsedData, reportType) => {
     const codigoConta = row[0].split('.')
 
     if (codigoConta.length < 4) {
-      const firstYearValue = row[3]
-      const secondYearValue = row[4]
-      const thirdYearValue = row[5]
+      const firstYearValue = row[2]
+      const secondYearValue = row[3]
+      const thirdYearValue = row[4]
 
       const firstYearValues = [companyName, codigoConta[0], codigoConta[1], codigoConta[2], description, firstYearValue, firstYear]
       const secondYearValues = [companyName, codigoConta[0], codigoConta[1], codigoConta[2], description, secondYearValue, secondYear]
