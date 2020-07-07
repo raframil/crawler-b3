@@ -58,6 +58,7 @@ const demonstracaoResultado = async (request, response) => {
 
     const companyData = await getCompanyData(companyName, reportType)
     if (companyData.length !== 0) {
+      log(chalk.green('Dados enviados.'))
       return response.status(200).json(companyData)
     }
 
@@ -125,9 +126,11 @@ const demonstracaoResultado = async (request, response) => {
     persistData(previous3YearsSerialized, reportType)
 
     log(chalk.cyan('Crawler finalizou'))
+    log(chalk.cyan('Preparando dados para envio...'))
 
     const companyDataPersisted = await getCompanyData(companyName, reportType)
     if (companyDataPersisted.length !== 0) {
+      log(chalk.green('Dados enviados.'))
       return response.status(200).json(companyDataPersisted)
     }
     const serialized = {
