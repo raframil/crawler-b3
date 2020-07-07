@@ -8,7 +8,7 @@ const pool = new pg.Pool({
   database: 'crawler-b3',
   password: 'root',
   port: '5432',
-  max: 10000
+  max: 10
 })
 
 const persistData = async (parsedData, reportType) => {

@@ -3,16 +3,7 @@ const chalk = require('chalk')
 const { persistData } = require('./database-controller')
 const log = console.log
 
-const maxRetryNumber = 5
-let retryNumber = 0
-
 const demonstracaoResultado = async (request, response) => {
-  retryNumber++
-  console.log(retryNumber)
-  if (retryNumber >= maxRetryNumber) {
-    return response.status(408).json({ error: 'Número máximo de tentativas excedido' })
-  }
-
   try {
     const { companyCode, reportType } = request.query
 
@@ -113,6 +104,10 @@ const demonstracaoResultado = async (request, response) => {
     const previous3YearsTableData = await parseTable(secondLinkToReportHistory, reportType)
     const previous3YearsTableHeader = previous3YearsTableData[0]
 
+    const yearsArray = await getYearsFromHeader(previous3YearsTableHeader)
+    const minValueFromArray = Math.min(...yearsArray)
+    console.log(minValueFromArray)
+
     // Remove o header da resposta
     previous3YearsTableData.splice(0, 1)
 
@@ -132,13 +127,28 @@ const demonstracaoResultado = async (request, response) => {
     }
 
     await navigationPromise
-    await browser.close()
+    // await browser.close()
     log(chalk.cyan('Crawler finalizou'))
     return response.status(200).json(serialized)
   } catch (err) {
     log(chalk.red(`Erro: ${err}`))
     return response.status(500).json({ error: err })
   }
+}
+
+const getYearsFromHeader = async (tableHeader) => {
+  const promises = []
+  const years = []
+  for (let i = 2; i < tableHeader.length; i++) {
+    promises.push(
+      new Promise(resolve => {
+        resolve(years.push(tableHeader[i].substring(6, 10)))
+      })
+    )
+  }
+  return Promise.all(promises).then(() => {
+    return (years)
+  })
 }
 
 const parseTable = async (link, reportType) => {
