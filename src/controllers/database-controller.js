@@ -11,7 +11,7 @@ const pool = new pg.Pool({
   max: 10000
 })
 
-const persistData = async (parsedData) => {
+const persistData = async (parsedData, reportType) => {
   const client = await pool.connect()
   const companyName = parsedData.companyName
   const firstYear = parsedData.tableHeader[2].split('/')[2].split(/(\s+)/)[0]
@@ -20,7 +20,39 @@ const persistData = async (parsedData) => {
   const tableData = parsedData.tableData
 
   log(chalk.yellow('Armazenamento dos dados(' + firstYear + ' a ' + thirdYear + ') inicializado'))
-
+  let sqlString
+  switch (reportType) {
+    case 'bpa':
+      sqlString = `
+        INSERT INTO "balanco-patrimonial-ativo"
+        ("codigoEmpresa", "codigoConta1", "codigoConta2", "codigoConta3", "descrição", "valor", "ano")
+        VALUES
+        ($1, $2, $3, $4, $5, $6, $7)`
+      break
+    case 'bpp':
+      sqlString = `
+        INSERT INTO "balanco-patrimonial-passivo"
+        ("codigoEmpresa", "codigoConta1", "codigoConta2", "codigoConta3", "descrição", "valor", "ano")
+        VALUES
+        ($1, $2, $3, $4, $5, $6, $7)`
+      break
+    case 'dfc':
+      sqlString = `
+        INSERT INTO "demonstracao-fluxo-caixa"
+        ("codigoEmpresa", "codigoConta1", "codigoConta2", "codigoConta3", "descrição", "valor", "ano")
+        VALUES
+        ($1, $2, $3, $4, $5, $6, $7)`
+      break
+    case 'dre':
+      sqlString = `
+        INSERT INTO "demonstrativo-de-resultado"
+        ("codigoEmpresa", "codigoConta1", "codigoConta2", "codigoConta3", "descrição", "valor", "ano")
+        VALUES
+        ($1, $2, $3, $4, $5, $6, $7)`
+      break
+    default:
+      break
+  }
   for (const row of tableData) {
     const description = row[1]
     const codigoConta = row[0].split('.')
@@ -33,12 +65,6 @@ const persistData = async (parsedData) => {
       const firstYearValues = [companyName, codigoConta[0], codigoConta[1], codigoConta[2], description, firstYearValue, firstYear]
       const secondYearValues = [companyName, codigoConta[0], codigoConta[1], codigoConta[2], description, secondYearValue, secondYear]
       const thirdYearValues = [companyName, codigoConta[0], codigoConta[1], codigoConta[2], description, thirdYearValue, thirdYear]
-
-      const sqlString = `
-        INSERT INTO "demonstrativo-de-resultado"
-        ("codigoEmpresa", "codigoConta1", "codigoConta2", "codigoConta3", "descrição", "valor", "ano")
-        VALUES
-        ($1, $2, $3, $4, $5, $6, $7)`
 
       // Pass the string and array to the pool's query() method
       client.query(sqlString, firstYearValues, (err, res) => {
