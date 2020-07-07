@@ -97,7 +97,7 @@ const demonstracaoResultado = async (request, response) => {
       tableHeader: last3YearsTableHeader,
       tableData: last3YearsTableData
     }
-    persistData(last3YerasSerialized)
+    persistData(last3YerasSerialized, reportType)
 
     // Get second link from reports
     await page.waitForSelector('#ctl00_contentPlaceHolderConteudo_rptDemonstrativo_ctl03_lnkDocumento')
@@ -122,7 +122,7 @@ const demonstracaoResultado = async (request, response) => {
       tableData: previous3YearsTableData
     }
 
-    persistData(previous3YearsSerialized)
+    persistData(previous3YearsSerialized, reportType)
     const serialized = {
       companyName,
       previous3YearsTableHeader,
