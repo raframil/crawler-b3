@@ -123,6 +123,13 @@ const demonstracaoResultado = async (request, response) => {
     }
 
     persistData(previous3YearsSerialized, reportType)
+
+    log(chalk.cyan('Crawler finalizou'))
+
+    const companyDataPersisted = await getCompanyData(companyName, reportType)
+    if (companyDataPersisted.length !== 0) {
+      return response.status(200).json(companyDataPersisted)
+    }
     const serialized = {
       companyName,
       previous3YearsTableHeader,
@@ -133,7 +140,6 @@ const demonstracaoResultado = async (request, response) => {
 
     await navigationPromise
     // await browser.close()
-    log(chalk.cyan('Crawler finalizou'))
     return response.status(200).json(serialized)
   } catch (err) {
     log(chalk.red(`Erro: ${err}`))
